@@ -1,0 +1,11 @@
+{
+  "domain": "ha_monocle_cloud_status",
+  "name": "Monocle Cloud Status",
+  "codeowners": ["@Astute4185"],
+  "config_flow": true,
+  "documentation": "https://github.com/Astute4185/ha_monocle_cloud_status",
+  "iot_class": "cloud_push",
+  "loggers": ["custom_components.the_monocle"],
+  "requirements": ["aiohttp>=3.9.0", "python-socketio[asyncio_client]==5.11.4"],
+  "version": "0.0.3"
+}

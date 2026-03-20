@@ -1,0 +1,44 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Monocle Cloud Status",
+        "description": "Enter your Monocle account details.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid authentication",
+      "cannot_connect": "Cannot connect"
+    },
+    "abort": {
+      "already_configured": "This account is already configured"
+    }
+  },
+	{
+	  "entity": {
+		"sensor": {
+		  "mains_power": { "name": "Mains power" },
+		  "solar_power": { "name": "Solar power" },
+		  "house_power": { "name": "House power" },
+		  "battery_power": { "name": "Battery power" },
+		  "load_state": { "name": "Load state" },
+		  "override_mode": { "name": "Override mode" },
+		  "override_valid_until": { "name": "Override valid until" }
+		},
+		"select": {
+		  "override_mode_draft": { "name": "Override mode" }
+		},
+		"number": {
+		  "override_minutes_draft": { "name": "Override duration (minutes)" }
+		},
+		"button": {
+		  "apply_override": { "name": "Apply override" },
+		  "clear_override": { "name": "Clear override" }
+		}
+	  }
+	}
+}

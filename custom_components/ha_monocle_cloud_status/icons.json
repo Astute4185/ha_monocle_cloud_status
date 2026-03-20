@@ -1,0 +1,50 @@
+{
+  "entity": {
+    "select": {
+      "hot_water_override_mode": {
+        "default": "mdi:water-boiler"
+      }
+    },
+    "number": {
+      "hot_water_override_minutes": {
+        "default": "mdi:timer-outline"
+      }
+    },
+    "button": {
+      "apply_hot_water_override": {
+        "default": "mdi:check-circle-outline"
+      }
+    },
+    "sensor": {
+      "load_state": {
+        "default": "mdi:flash"
+      },
+      "override_mode": {
+        "default": "mdi:tune-variant"
+      },
+      "override_valid_until": {
+        "default": "mdi:timer-outline"
+      }
+    },
+    "select": {
+      "override_mode_draft": {
+        "default": "mdi:tune"
+      }
+    },
+    "number": {
+      "override_minutes_draft": {
+        "default": "mdi:timer-edit-outline"
+      }
+    },
+    "button": {
+      "apply_override": {
+        "default": "mdi:check-circle-outline"
+      }
+    },
+    "binary_sensor": {
+      "device_online": {
+        "default": "mdi:lan-connect"
+      }
+    }
+  }
+}

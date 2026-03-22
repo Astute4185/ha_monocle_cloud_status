@@ -1,5 +1,6 @@
 # Monocle Cloud Status (Home Assistant)
-Unofficial read-only Home Assistant integration for viewing hot water status from a Monocle-compatible installation. Not affiliated with or endorsed by the vendor.
+Unofficial read-only Home Assistant integration for viewing hot water status from a Solar Catch Relay/Control installation. Not affiliated with or endorsed by the vendor.
+Development has been made with the 2 channel Solar Catch Control - no testing has been doing with the 6 channel version.
 
 ## Features
 
@@ -8,7 +9,7 @@ Unofficial read-only Home Assistant integration for viewing hot water status fro
 * Hot water state visibility
 * Hot water override control (on/off with duration)
 * Native Home Assistant config flow (UI setup)
-* Uses official app authentication (no hardcoded credentials)
+* Uses official Monocole app authentication (no hardcoded credentials)
 
 ## Installation (HACS)
 
@@ -50,7 +51,6 @@ Unofficial read-only Home Assistant integration for viewing hot water status fro
 ## Disclaimer
 
 This project is not affiliated with Catch Power or Monocle.
-
 Use at your own risk.
 
 ## License

@@ -1,3 +1,5 @@
+"""Shared entity classes for Monocle Cloud Status."""
+
 from __future__ import annotations
 
 from typing import Any

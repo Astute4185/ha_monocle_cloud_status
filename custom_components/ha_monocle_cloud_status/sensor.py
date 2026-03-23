@@ -16,9 +16,9 @@ from homeassistant.const import UnitOfPower
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .entity import MonocleBaseEntity, normalize_on_off
 from .const import DATA_COORDINATOR, DOMAIN
 from .coordinator import MonocleCoordinator
+from .entity import MonocleBaseEntity, normalize_on_off
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -74,3 +74,39 @@ SENSORS: tuple[MonocleSensorDescription, ...] = (
         value_fn=lambda c: c.client.state.override_valid_until,
     ),
 )
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up Monocle sensors."""
+    coordinator: MonocleCoordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
+    entities = [MonocleSensor(coordinator, entry, description) for description in SENSORS]
+    async_add_entities(entities)
+
+
+class MonocleSensor(MonocleBaseEntity, SensorEntity):
+    """Representation of a Monocle sensor."""
+
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: MonocleCoordinator,
+        entry: ConfigEntry,
+        description: MonocleSensorDescription,
+    ) -> None:
+        super().__init__(coordinator)
+        self.entity_description = description
+        self._attr_unique_id = f"{entry.entry_id}_{description.key}"
+        self._attr_name = description.key.replace("_", " ")
+
+    @property
+    def native_value(self) -> float | str | datetime | None:
+        return self.entity_description.value_fn(self.coordinator)
+
+    @property
+    def available(self) -> bool:
+        return self.coordinator.client.state.connected

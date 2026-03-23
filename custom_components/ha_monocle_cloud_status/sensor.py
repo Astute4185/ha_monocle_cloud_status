@@ -3,25 +3,28 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Callable
 
-from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorEntityDescription,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfPower
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from homeassistant.util import dt as dt_util
-from .entity import MonocleBaseEntity, format_timestamp, normalize_on_off
 
 from .const import DATA_COORDINATOR, DOMAIN
 from .coordinator import MonocleCoordinator
-
+from .entity import MonocleBaseEntity, normalize_on_off
 
 
 @dataclass(frozen=True, kw_only=True)
 class MonocleSensorDescription(SensorEntityDescription):
-    value_fn: Callable[[MonocleCoordinator], float | str | None]
+    value_fn: Callable[[MonocleCoordinator], float | str | datetime | None]
+
 
 SENSORS: tuple[MonocleSensorDescription, ...] = (
     MonocleSensorDescription(
@@ -67,9 +70,8 @@ SENSORS: tuple[MonocleSensorDescription, ...] = (
     MonocleSensorDescription(
         key="override_valid_until",
         translation_key="override_valid_until",
-        value_fn=lambda c: format_timestamp(
-            c.client.state.override_valid_until
-        ),
+        device_class=SensorDeviceClass.TIMESTAMP,
+        value_fn=lambda c: c.client.state.override_valid_until,
     ),
 )
 
@@ -81,7 +83,6 @@ async def async_setup_entry(
 ) -> None:
     """Set up Monocle sensors."""
     coordinator: MonocleCoordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
-
     entities = [MonocleSensor(coordinator, entry, description) for description in SENSORS]
     async_add_entities(entities)
 
@@ -103,7 +104,7 @@ class MonocleSensor(MonocleBaseEntity, SensorEntity):
         self._attr_name = description.key.replace("_", " ")
 
     @property
-    def native_value(self) -> float | str | None:
+    def native_value(self) -> float | str | datetime | None:
         return self.entity_description.value_fn(self.coordinator)
 
     @property

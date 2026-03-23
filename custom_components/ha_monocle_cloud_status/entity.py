@@ -1,13 +1,12 @@
-"""Shared entity classes for Monocle Cloud Status."""
-
 from __future__ import annotations
+
+from typing import Any
 
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from homeassistant.util import dt as dt_util
+
 from .const import DOMAIN
 from .coordinator import MonocleCoordinator
-from typing import Any
 
 
 class MonocleBaseEntity(CoordinatorEntity[MonocleCoordinator]):
@@ -25,6 +24,7 @@ class MonocleBaseEntity(CoordinatorEntity[MonocleCoordinator]):
             model="Monocle",
         )
 
+
 def normalize_on_off(value: Any, *, none_as: str = "None") -> str:
     if value is None:
         return none_as
@@ -37,14 +37,3 @@ def normalize_on_off(value: Any, *, none_as: str = "None") -> str:
         return "Off"
 
     return str(value)
-
-
-def format_timestamp(ts: int | None) -> str:
-    if ts is None:
-        return "None"
-
-    try:
-        dt = dt_util.as_local(dt_util.utc_from_timestamp(ts / 1000))
-        return dt.strftime("%Y-%m-%d %H:%M")
-    except Exception:
-        return "Unknown"

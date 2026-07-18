@@ -7,7 +7,6 @@ Development has been made with the 2 channel Solar Catch Control - no testing ha
 * Live power telemetry (mains, solar, house, battery)
 * Device online status
 * Hot water state visibility
-* Hot water override control (on/off with duration)
 * Native Home Assistant config flow (UI setup)
 * Uses official Monocole app authentication (no hardcoded credentials)
 
@@ -40,13 +39,6 @@ Development has been made with the 2 channel Solar Catch Control - no testing ha
 * Hot Water State
 * Override Mode
 * Override Valid Until
-
-### Controls
-
-* Override Mode (Select)
-* Override Duration (Number)
-* Apply Override (Button)
-* Clear Override (Button)
 
 ## Disclaimer
 

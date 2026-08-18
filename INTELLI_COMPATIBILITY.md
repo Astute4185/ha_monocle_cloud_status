@@ -1,7 +1,7 @@
 # Intelli companion compatibility contract
 
-`ha_monocle_cloud_status_intelli` is private and needs a vendor Basic Authorization
-credential, so the public project must not require that repository or credential to test.
+`ha_monocle_cloud_status_intelli` needs a vendor Basic Authorization
+credential, so is not part of this repo and the public project must not require that repository or credential to test.
 
 The supported parent/companion contract is intentionally limited to
 `custom_components.ha_monocle_cloud_status.extension`:

@@ -1,44 +1,92 @@
 {
   "config": {
-    "step": {
-      "user": {
-        "title": "Set up Monocle Cloud Status",
-        "description": "Enter your Monocle account details.",
-        "data": {
-          "username": "Username",
-          "password": "Password"
-        }
-      }
+    "abort": {
+      "already_configured": "This Monocle location is already configured"
     },
     "error": {
-      "invalid_auth": "Invalid authentication",
-      "cannot_connect": "Cannot connect"
+      "cannot_connect": "Unable to connect to Monocle",
+      "invalid_auth": "Invalid username or password",
+      "unknown": "Unexpected error",
+      "wrong_account": "The credentials belong to a different Monocle location"
     },
-    "abort": {
-      "already_configured": "This account is already configured"
+    "step": {
+      "user": {
+        "data": {
+          "password": "Password",
+          "username": "Email"
+        },
+        "data_description": {
+          "password": "Password used to sign in to the Monocle app.",
+          "username": "Email address used to sign in to the Monocle app."
+        },
+        "description": "Enter the credentials used by the Monocle app.",
+        "title": "Connect account"
+      },
+      "reauth_confirm": {
+        "data": {
+          "password": "Password",
+          "username": "Email"
+        },
+        "data_description": {
+          "password": "Current password for this Monocle account.",
+          "username": "Email address for the configured Monocle location."
+        },
+        "description": "Update the credentials for this Monocle location.",
+        "title": "Reconnect account"
+      }
     }
   },
-	{
-	  "entity": {
-		"sensor": {
-		  "mains_power": { "name": "Mains power" },
-		  "solar_power": { "name": "Solar power" },
-		  "house_power": { "name": "House power" },
-		  "battery_power": { "name": "Battery power" },
-		  "load_state": { "name": "Load state" },
-		  "override_mode": { "name": "Override mode" },
-		  "override_valid_until": { "name": "Override valid until" }
-		},
-		"select": {
-		  "override_mode_draft": { "name": "Override mode" }
-		},
-		"number": {
-		  "override_minutes_draft": { "name": "Override duration (minutes)" }
-		},
-		"button": {
-		  "apply_override": { "name": "Apply override" },
-		  "clear_override": { "name": "Clear override" }
-		}
-	  }
-	}
+  "entity": {
+    "binary_sensor": {
+      "device_online": {
+        "name": "Device online"
+      }
+    },
+    "button": {
+      "apply_hot_water_override": {
+        "name": "Apply hot water override"
+      }
+    },
+    "number": {
+      "hot_water_override_minutes": {
+        "name": "Hot water override duration"
+      }
+    },
+    "select": {
+      "hot_water_override_mode": {
+        "name": "Hot water override mode"
+      }
+    },
+    "sensor": {
+      "battery_power": {
+        "name": "Battery power"
+      },
+      "house_power": {
+        "name": "House power"
+      },
+      "load_state": {
+        "name": "Load state"
+      },
+      "mains_power": {
+        "name": "Mains power"
+      },
+      "override_mode": {
+        "name": "Override mode"
+      },
+      "override_valid_until": {
+        "name": "Override valid until"
+      },
+      "solar_power": {
+        "name": "Solar power"
+      }
+    }
+  },
+  "exceptions": {
+    "override_failed": {
+      "message": "Unable to update the hot water override."
+    },
+    "override_unavailable": {
+      "message": "The Monocle hot water control is currently unavailable."
+    }
+  }
 }

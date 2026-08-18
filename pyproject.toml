@@ -1,0 +1,44 @@
+[tool.ruff]
+required-version = ">=0.16.2"
+target-version = "py314"
+line-length = 88
+src = ["custom_components", "scripts", "tests"]
+
+[tool.ruff.lint]
+select = [
+  "ASYNC",
+  "B",
+  "C4",
+  "DTZ",
+  "E",
+  "F",
+  "G",
+  "I",
+  "LOG",
+  "PERF",
+  "PIE",
+  "RET",
+  "RUF",
+  "SIM",
+  "UP",
+  "W",
+]
+ignore = ["ASYNC109", "ASYNC110", "ASYNC240", "E501"]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+known-first-party = ["homeassistant"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+addopts = "--strict-config --strict-markers --cov=custom_components.ha_monocle_cloud_status --cov-report=term-missing --cov-report=xml --cov-fail-under=80"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+]

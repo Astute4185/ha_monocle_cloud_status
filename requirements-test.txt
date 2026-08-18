@@ -1,0 +1,5 @@
+# pytest-homeassistant-custom-component is updated against current Home Assistant releases.
+pytest-homeassistant-custom-component==0.13.356
+pytest-cov>=7.0.0
+ruff>=0.16.2,<0.17
+pip-audit>=2.9.0

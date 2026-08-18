@@ -1,50 +1,79 @@
-# Monocle Cloud Status (Home Assistant)
-Unofficial read-only Home Assistant integration for viewing hot water status from a Solar Catch Relay/Control installation. Not affiliated with or endorsed by the vendor.
-Development has been made with the 2 channel Solar Catch Control - no testing or validation has been done with the 6 channel version.
+# Monocle Cloud Status for Home Assistant
+
+Unofficial Home Assistant integration for Monocle / Catch Power cloud status and hot-water
+override controls. It has primarily been developed against a two-channel Solar Catch
+Control installation; six-channel hardware has not been validated.
+
+This project is not affiliated with or endorsed by Catch Power, Solar Analytics, or the
+Monocle vendor.
 
 ## Features
 
-* Live power telemetry (mains, solar, house, battery)
-* Device online status
-* Hot water state visibility
-* Native Home Assistant config flow (UI setup)
-* Uses official Monocole app authentication (no hardcoded credentials)
+- Live mains, solar, house, and battery power telemetry
+- Device online state and hot-water/load state
+- Current override state and expiry
+- Draft override mode/duration controls with an explicit Apply button
+- Home Assistant config-flow setup
+- Push telemetry using the Monocle Socket.IO service
 
-## Installation (HACS)
+## Installation with HACS
 
-1. Open HACS
-2. Go to **Integrations**
-3. Click **⋮ → Custom repositories**
-4. Add this repository URL
-5. Select **Integration**
-6. Install **Monocle Cloud Status**
-7. Restart Home Assistant
+1. In HACS, open **Integrations** and add this repository as a custom repository.
+2. Select **Integration**, install **Monocle Cloud Status**, and restart Home Assistant.
+3. Go to **Settings → Devices & Services → Add Integration**.
+4. Search for **Monocle Cloud Status** and enter the credentials used by the Monocle app.
 
-## Setup
+The development and CI baseline is Home Assistant 2026.8 or later.
 
-1. Go to **Settings → Devices & Services**
-2. Click **Add Integration**
-3. Search for **Monocle Cloud Status**
-4. Enter your Monocle account credentials
+## Development
 
-## Entities
+Python 3.14 is required for the current Home Assistant development baseline.
 
-### Sensors
+```bash
+./scripts/bootstrap
+source .venv/bin/activate
+./scripts/check
+```
 
-* Mains Power
-* Solar Power
-* House Power
-* Battery Power
-* Device Status
-* Hot Water State
-* Override Mode
-* Override Valid Until
+Individual checks are available for code linting, workflow linting, tests, the network-free
+Home Assistant runtime smoke, and dependency auditing. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for the commands and CI gates.
 
-## Disclaimer
+## Compatibility monitoring
 
-This project is not affiliated with Catch Power or Monocle.
-Use at your own risk.
+CI performs three layers of compatibility checking:
+
+- official Home Assistant `hassfest` plus HACS validation;
+- actionlint, Ruff, unit/coverage, and dependency checks against the current HA test stack;
+- a scheduled network-free runtime/coordinator smoke against Home Assistant Core `dev`.
+
+The private `ha_monocle_cloud_status_intelli` companion is protected by a public extension
+contract and unit tests without requiring the vendor Basic Authorization credential. See
+[INTELLI_COMPATIBILITY.md](INTELLI_COMPATIBILITY.md).
+
+## Home Assistant Core readiness
+
+The repository tracks the current Integration Quality Scale in
+`custom_components/ha_monocle_cloud_status/quality_scale.yaml`. It deliberately does not
+claim Bronze yet. Before proposing this for Home Assistant Core, the main outstanding work
+is:
+
+1. Extract vendor/API-specific HTTP and Socket.IO communication into a separately packaged
+   Python library.
+2. Add Home Assistant Brands assets.
+3. Add the official Home Assistant integration documentation contribution.
+4. Complete the remaining quality-scale items, notably diagnostics, reconfiguration, repair
+   issues, strict typing, and the greater-than-95-percent Silver test-coverage target.
+5. Resolve licensing for a Core contribution; the current repository license statement is
+   CC BY-NC 4.0 and should not be changed without confirming rights/intent.
+
+## Security
+
+Credentials are stored in the Home Assistant config entry like other integration secrets.
+Do not commit Monocle credentials, tokens, event captures containing secrets, or the private
+Intelli Basic Authorization credential to this repository.
 
 ## License
 
-This project is licensed under CC BY-NC 4.0.
+This project currently states CC BY-NC 4.0. Confirm an appropriate license before any Home
+Assistant Core contribution.

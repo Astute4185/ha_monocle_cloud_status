@@ -1,11 +1,19 @@
 {
-  "domain": "ha_monocle_cloud_status",
-  "name": "Monocle Cloud Status",
-  "codeowners": ["@Astute4185"],
+  "codeowners": [
+    "@Astute4185"
+  ],
   "config_flow": true,
   "documentation": "https://github.com/Astute4185/ha_monocle_cloud_status",
+  "domain": "ha_monocle_cloud_status",
+  "integration_type": "service",
   "iot_class": "cloud_push",
-  "loggers": ["custom_components.the_monocle"],
-  "requirements": ["aiohttp>=3.9.0", "python-socketio[asyncio_client]==5.11.4"],
-  "version": "1.0.0"
+  "loggers": [
+    "engineio",
+    "socketio"
+  ],
+  "name": "Monocle Cloud Status",
+  "requirements": [
+    "python-socketio[asyncio-client]==5.16.4"
+  ],
+  "version": "1.1.0"
 }

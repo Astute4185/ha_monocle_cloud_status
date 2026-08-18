@@ -1,11 +1,11 @@
-from __future__ import annotations
+"""Constants for the Monocle Cloud Status integration."""
+
 from homeassistant.const import Platform
 
 DEFAULT_NAME = "Monocle"
 DOMAIN = "ha_monocle_cloud_status"
-DATA_COORDINATOR = "coordinator"
 
-PLATFORMS = [
+PLATFORMS: list[Platform] = [
     Platform.SENSOR,
     Platform.BINARY_SENSOR,
     Platform.SELECT,
@@ -21,4 +21,3 @@ LOGIN_URL = "https://monocle0.edde.world/auth/login"
 ORIGIN = "https://themonocleapp.catchpower.com.au"
 SAVE_OVERRIDE_URL = "https://monocle0.edde.world/data/saveOverride"
 REMOVE_OVERRIDE_URL = "https://monocle0.edde.world/data/removeOverride"
-

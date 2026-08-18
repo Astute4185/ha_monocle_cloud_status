@@ -1,0 +1,27 @@
+name: Home Assistant dev smoke
+
+on:
+  schedule:
+    - cron: "43 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ha-dev-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+      - name: Install Home Assistant dev and runtime dependency
+        run: |
+          python -m pip install \
+            "homeassistant @ git+https://github.com/home-assistant/core.git@dev" \
+            -r requirements-runtime.txt
+          python -m pip check
+      - name: Runtime and API compatibility smoke test
+        run: python scripts/ha_smoke.py

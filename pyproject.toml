@@ -31,6 +31,7 @@ known-first-party = ["homeassistant"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+pythonpath = ["."]
 addopts = "--strict-config --strict-markers --cov=custom_components.ha_monocle_cloud_status --cov-report=term-missing --cov-report=xml --cov-fail-under=80"
 testpaths = ["tests"]
 

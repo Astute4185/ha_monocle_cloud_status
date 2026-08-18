@@ -75,12 +75,4 @@ Intelli Basic Authorization credential to this repository.
 
 ## License
 
-Original material in this repository is provided under the
-Creative Commons Attribution-NonCommercial 4.0 International license
-(CC BY-NC 4.0), except where otherwise stated.
-
-See the repository [LICENSE](LICENSE) for the applicable license terms.
-
-The license is intentionally non-commercial and does not imply ownership of, or grant
-rights to, any vendor software, service, protocol, trademark, branding, or other
-third-party intellectual property referenced by this project
+This project is licensed under the [GNU General Public License v3.0](LICENSE). The license applies only to material the contributors have the right to license; third-party rights are not included.

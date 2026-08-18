@@ -75,5 +75,10 @@ Intelli Basic Authorization credential to this repository.
 
 ## License
 
-This project currently states CC BY-NC 4.0. Confirm an appropriate license before any Home
-Assistant Core contribution.
+Original material in this repository is provided under the
+Creative Commons Attribution-NonCommercial 4.0 International license
+(CC BY-NC 4.0), except where otherwise stated.
+
+The license is intentionally non-commercial and does not imply ownership of, or grant
+rights to, any vendor software, service, protocol, trademark, branding, or other
+third-party intellectual property referenced by this project

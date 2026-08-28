@@ -1,43 +1,44 @@
 """Binary sensor platform for Monocle Cloud Status."""
 
-from __future__ import annotations
-
 from homeassistant.components.binary_sensor import BinarySensorEntity
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DATA_COORDINATOR, DOMAIN
+from . import MonocleConfigEntry
 from .coordinator import MonocleCoordinator
 from .entity import MonocleBaseEntity
 
+PARALLEL_UPDATES = 0
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: MonocleConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Monocle binary sensors."""
-    coordinator: MonocleCoordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
-    async_add_entities([MonocleOnlineBinarySensor(coordinator, entry)])
+    async_add_entities(
+        [MonocleOnlineBinarySensor(entry.runtime_data.coordinator, entry)]
+    )
 
 
 class MonocleOnlineBinarySensor(MonocleBaseEntity, BinarySensorEntity):
-    """Online status binary sensor."""
+    """Represent the Monocle online state."""
 
-    _attr_has_entity_name = True
-    _attr_name = "device online"
+    _attr_translation_key = "device_online"
 
-    def __init__(self, coordinator: MonocleCoordinator, entry: ConfigEntry) -> None:
+    def __init__(
+        self, coordinator: MonocleCoordinator, entry: MonocleConfigEntry
+    ) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_device_online"
 
     @property
     def is_on(self) -> bool | None:
+        """Return whether the Monocle device is online."""
         return self.coordinator.client.state.device_online
 
     @property
     def available(self) -> bool:
+        """Return whether current data is available."""
         return self.coordinator.client.state.connected

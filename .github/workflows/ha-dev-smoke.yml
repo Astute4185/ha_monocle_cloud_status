@@ -1,0 +1,43 @@
+name: Home Assistant dev smoke
+
+on:
+  schedule:
+    - cron: "43 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ha-dev-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ha-dev-smoke:
+    name: ha-dev-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements-runtime.txt
+
+      - name: Install Home Assistant dev and runtime dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            "homeassistant @ git+https://github.com/home-assistant/core.git@dev" \
+            -r requirements-runtime.txt
+          python -m pip check
+
+      - name: Show Home Assistant version
+        run: python -c "from importlib.metadata import version; print(version('homeassistant'))"
+
+      - name: Runtime and API compatibility smoke test
+        run: python scripts/ha_smoke.py

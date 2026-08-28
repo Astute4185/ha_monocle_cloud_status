@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Lint GitHub Actions workflows
+        uses: docker://rhysd/actionlint:1.7.12
+        with:
+          args: -color
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: |
+            requirements-runtime.txt
+            requirements-test.txt
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-test.txt -r requirements-runtime.txt
+
+      - name: Verify installed dependencies
+        run: python -m pip check
+
+      - name: Validate repository metadata
+        run: python scripts/validate_repo.py
+
+      - name: Ruff check
+        run: python -m ruff check .
+
+      - name: Ruff format check
+        run: python -m ruff format --check .
+
+      - name: Run tests
+        run: python -m pytest
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          if-no-files-found: ignore
+
+  dependency-audit:
+    name: dependency-audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements-runtime.txt
+
+      - name: Install runtime dependencies and pip-audit
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-runtime.txt "pip-audit>=2.9.0"
+
+      - name: Verify installed runtime dependencies
+        run: python -m pip check
+
+      - name: Audit runtime dependencies
+        run: python -m pip_audit -r requirements-runtime.txt
+
+  ha-smoke:
+    name: ha-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements-runtime.txt
+
+      - name: Install current stable Home Assistant and runtime dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install homeassistant -r requirements-runtime.txt
+          python -m pip check
+
+      - name: Show Home Assistant version
+        run: python -c "from importlib.metadata import version; print(version('homeassistant'))"
+
+      - name: Runtime and API compatibility smoke test
+        run: python scripts/ha_smoke.py

@@ -1,7 +1,5 @@
 """Shared entity classes for Monocle Cloud Status."""
 
-from __future__ import annotations
-
 from typing import Any
 
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -18,6 +16,7 @@ class MonocleBaseEntity(CoordinatorEntity[MonocleCoordinator]):
 
     @property
     def device_info(self) -> DeviceInfo:
+        """Return device registry information."""
         location_id = self.coordinator.location_id
         return DeviceInfo(
             identifiers={(DOMAIN, location_id)},
@@ -28,14 +27,12 @@ class MonocleBaseEntity(CoordinatorEntity[MonocleCoordinator]):
 
 
 def normalize_on_off(value: Any, *, none_as: str = "None") -> str:
+    """Normalize common on/off values for display."""
     if value is None:
         return none_as
-
-    value = str(value).strip().lower()
-
-    if value == "on":
+    normalized = str(value).strip().lower()
+    if normalized == "on":
         return "On"
-    if value == "off":
+    if normalized == "off":
         return "Off"
-
     return str(value)

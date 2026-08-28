@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+python scripts/validate_repo.py
+
+if [[ "${1:-}" == "--fix" ]]; then
+    ruff check . --fix
+    ruff format .
+else
+    ruff check .
+    ruff format --check .
+fi
+
+python -m compileall -q custom_components scripts tests

@@ -1,0 +1,2 @@
+# Keep synchronized with custom_components/ha_monocle_cloud_status/manifest.json.
+python-socketio[asyncio-client]==5.16.4

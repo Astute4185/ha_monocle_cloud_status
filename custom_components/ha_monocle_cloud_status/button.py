@@ -1,49 +1,46 @@
 """Button platform for Monocle Cloud Status."""
 
-from __future__ import annotations
-
 from homeassistant.components.button import ButtonEntity
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DATA_COORDINATOR, DOMAIN
+from . import MonocleConfigEntry
+from .client import MonocleClientError
+from .const import DOMAIN
 from .coordinator import MonocleCoordinator
+from .entity import MonocleBaseEntity
+
+PARALLEL_UPDATES = 1
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: MonocleConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator: MonocleCoordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
-    async_add_entities([MonocleApplyOverrideButton(coordinator, entry)])
+    """Set up Monocle button entities."""
+    async_add_entities(
+        [MonocleApplyOverrideButton(entry.runtime_data.coordinator, entry)]
+    )
 
 
-class MonocleApplyOverrideButton(CoordinatorEntity[MonocleCoordinator], ButtonEntity):
-    """Apply override button."""
+class MonocleApplyOverrideButton(MonocleBaseEntity, ButtonEntity):
+    """Apply the current draft hot-water override."""
 
-    _attr_has_entity_name = True
     _attr_translation_key = "apply_hot_water_override"
+    _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator: MonocleCoordinator, entry: ConfigEntry) -> None:
+    def __init__(
+        self, coordinator: MonocleCoordinator, entry: MonocleConfigEntry
+    ) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_apply_hot_water_override"
 
     @property
-    def device_info(self) -> DeviceInfo:
-        location_id = self.coordinator.location_id
-        return DeviceInfo(
-            identifiers={(DOMAIN, str(location_id))},
-            name=f"Monocle {location_id}",
-            manufacturer="Catch Power",
-            model="Monocle",
-        )
-
-    @property
     def available(self) -> bool:
+        """Return whether an override can be applied."""
         state = self.coordinator.client.state
         return (
             state.connected
@@ -52,22 +49,31 @@ class MonocleApplyOverrideButton(CoordinatorEntity[MonocleCoordinator], ButtonEn
         )
 
     async def async_press(self) -> None:
+        """Apply the selected override."""
         state = self.coordinator.client.state
-        mode = self.coordinator.selected_override_mode
-        minutes = self.coordinator.selected_override_minutes
+        if not state.connected or state.actor_id is None or state.location_id is None:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="override_unavailable",
+            )
 
-        if mode == "None":
-            await self.coordinator.client.async_remove_override(
+        try:
+            mode = self.coordinator.selected_override_mode
+            if mode == "None":
+                await self.coordinator.client.async_remove_override(
+                    actor_id=state.actor_id,
+                    location_id=state.location_id,
+                )
+                return
+
+            await self.coordinator.client.async_save_override(
                 actor_id=state.actor_id,
                 location_id=state.location_id,
+                mode="on" if mode == "On" else "off",
+                valid_until=self.coordinator.selected_override_minutes,
             )
-            return
-
-        api_mode = "on" if mode == "On" else "off"
-
-        await self.coordinator.client.async_save_override(
-            actor_id=state.actor_id,
-            location_id=state.location_id,
-            mode=api_mode,
-            valid_until=minutes,
-        )
+        except MonocleClientError as err:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="override_failed",
+            ) from err

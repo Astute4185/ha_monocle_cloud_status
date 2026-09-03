@@ -1,8 +1,8 @@
 """Unit tests for Monocle telemetry parsing."""
 
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
-from custom_components.ha_monocle_cloud_status.auth import MonocleAuthSession
 from custom_components.ha_monocle_cloud_status.client import (
     MonocleSocketClient,
     MonocleState,
@@ -11,14 +11,7 @@ from custom_components.ha_monocle_cloud_status.client import (
 
 def _parser_client() -> MonocleSocketClient:
     client = object.__new__(MonocleSocketClient)
-    client._auth = MonocleAuthSession(
-        access_token="token",
-        location_id="42",
-        token_expiry_ms=None,
-        user_id=None,
-        email=None,
-        display_name=None,
-    )
+    client._auth_manager = SimpleNamespace(location_id="42")
     client.state = MonocleState()
     return client
 

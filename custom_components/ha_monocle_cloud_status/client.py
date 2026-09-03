@@ -10,7 +10,11 @@ from typing import Any
 import aiohttp
 import socketio
 
-from .auth import MonocleAuthSession
+from .auth import (
+    MonocleAuthManager,
+    MonocleConnectionError,
+    MonocleInvalidAuthError,
+)
 from .const import ORIGIN, REMOVE_OVERRIDE_URL, SAVE_OVERRIDE_URL, SOCKET_BASE_URL
 
 _LOGGER = logging.getLogger(__name__)
@@ -48,12 +52,12 @@ class MonocleSocketClient:
 
     def __init__(
         self,
-        auth: MonocleAuthSession,
+        auth_manager: MonocleAuthManager,
         websession: aiohttp.ClientSession,
         *,
         event_callback: EventCallback | None = None,
     ) -> None:
-        self._auth = auth
+        self._auth_manager = auth_manager
         self._websession = websession
         self._event_callback = event_callback
         self.state = MonocleState()
@@ -115,16 +119,18 @@ class MonocleSocketClient:
     async def async_connect(self) -> None:
         """Connect to the Monocle Socket.IO endpoint."""
         try:
+            await self._auth_manager.async_refresh_if_needed()
             await self._sio.connect(
                 SOCKET_BASE_URL,
                 transports=["websocket"],
                 headers={"Origin": ORIGIN},
-                auth={
-                    "token": self._auth.access_token,
-                    "locationId": self._auth.location_id,
-                },
+                auth=self._auth_manager.socket_auth,
                 wait_timeout=20,
             )
+        except (MonocleInvalidAuthError, MonocleConnectionError) as err:
+            raise MonocleClientError(
+                "Unable to refresh Monocle authentication"
+            ) from err
         except (
             socketio.exceptions.ConnectionError,
             aiohttp.ClientError,
@@ -163,32 +169,69 @@ class MonocleSocketClient:
         )
 
     async def _async_post(self, url: str, payload: dict[str, Any]) -> None:
-        """POST an authenticated Monocle API request."""
+        """POST an authenticated request, refreshing a rejected token once."""
+        try:
+            auth = await self._auth_manager.async_refresh_if_needed()
+            status, raw = await self._async_post_once(
+                url,
+                payload,
+                access_token=auth.access_token,
+            )
+
+            if status in {401, 403}:
+                auth = await self._auth_manager.async_refresh_after_rejection(
+                    auth.access_token
+                )
+                status, raw = await self._async_post_once(
+                    url,
+                    payload,
+                    access_token=auth.access_token,
+                )
+
+            if status in {401, 403}:
+                self._auth_manager.request_reauth()
+                raise MonocleClientError(
+                    f"Monocle authentication was rejected with HTTP {status}"
+                )
+
+            if not 200 <= status < 300:
+                raise MonocleClientError(
+                    f"Monocle request failed with HTTP {status}: {raw[:200]}"
+                )
+        except MonocleInvalidAuthError as err:
+            raise MonocleClientError("Monocle credentials are no longer valid") from err
+        except MonocleConnectionError as err:
+            raise MonocleClientError(
+                "Unable to refresh Monocle authentication"
+            ) from err
+        except MonocleClientError:
+            raise
+        except (aiohttp.ClientError, TimeoutError) as err:
+            raise MonocleClientError("Unable to communicate with Monocle") from err
+
+    async def _async_post_once(
+        self,
+        url: str,
+        payload: dict[str, Any],
+        *,
+        access_token: str,
+    ) -> tuple[int, str]:
+        """Perform one authenticated API POST and return status/body."""
         headers = {
-            "Authorization": f"Token {self._auth.access_token}",
+            "Authorization": f"Token {access_token}",
             "Accept": "application/json, text/plain, */*",
             "Content-Type": "application/json",
             "Origin": ORIGIN,
             "Referer": f"{ORIGIN}/",
             "X-Requested-With": "au.com.catchpower.monocle",
         }
-        try:
-            async with self._websession.post(
-                url,
-                json=payload,
-                headers=headers,
-                timeout=aiohttp.ClientTimeout(total=20),
-            ) as response:
-                raw = await response.text()
-                if not 200 <= response.status < 300:
-                    raise MonocleClientError(
-                        f"Monocle request failed with HTTP {response.status}: "
-                        f"{raw[:200]}"
-                    )
-        except MonocleClientError:
-            raise
-        except (aiohttp.ClientError, TimeoutError) as err:
-            raise MonocleClientError("Unable to communicate with Monocle") from err
+        async with self._websession.post(
+            url,
+            json=payload,
+            headers=headers,
+            timeout=aiohttp.ClientTimeout(total=20),
+        ) as response:
+            return response.status, await response.text()
 
     def _handle_event(self, data: dict[str, Any]) -> None:
         """Parse a pushed telemetry event into state."""
@@ -220,7 +263,7 @@ class MonocleSocketClient:
 
     def _safe_location_id(self) -> int | None:
         try:
-            return int(self._auth.location_id)
+            return int(self._auth_manager.location_id)
         except TypeError, ValueError:
             return None
 

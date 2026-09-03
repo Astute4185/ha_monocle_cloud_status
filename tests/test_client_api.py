@@ -3,7 +3,11 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
-from custom_components.ha_monocle_cloud_status.auth import MonocleAuthSession
+from custom_components.ha_monocle_cloud_status.auth import (
+    MonocleAuthManager,
+    MonocleAuthSession,
+    MonocleInvalidAuthError,
+)
 from custom_components.ha_monocle_cloud_status.client import (
     MonocleClientError,
     MonocleSocketClient,
@@ -26,9 +30,21 @@ AUTH = MonocleAuthSession(
 )
 
 
+def _auth_manager() -> MagicMock:
+    manager = MagicMock(spec=MonocleAuthManager)
+    manager.location_id = AUTH.location_id
+    manager.socket_auth = MagicMock(
+        return_value={"token": AUTH.access_token, "locationId": AUTH.location_id}
+    )
+    manager.async_refresh_if_needed = AsyncMock(return_value=AUTH)
+    manager.async_refresh_after_rejection = AsyncMock(return_value=AUTH)
+    manager.request_reauth = MagicMock()
+    return manager
+
+
 def _client() -> MonocleSocketClient:
     client = object.__new__(MonocleSocketClient)
-    client._auth = AUTH
+    client._auth_manager = _auth_manager()
     client.state = MonocleState()
     client._availability_lost = False
     return client
@@ -56,6 +72,7 @@ async def test_connect_and_disconnect() -> None:
 
     await client.async_connect()
     sio.connect.assert_awaited_once()
+    assert sio.connect.await_args.kwargs["auth"] is client._auth_manager.socket_auth
 
     await client.async_disconnect()
     sio.shutdown.assert_awaited_once_with()
@@ -133,6 +150,56 @@ async def test_post_success_and_http_failure() -> None:
     client._websession = _websession(status=500, text="failed")
     with pytest.raises(MonocleClientError, match="HTTP 500"):
         await client._async_post("https://example.test", {"value": 1})
+
+
+async def test_post_refreshes_and_retries_after_unauthorized() -> None:
+    """A rejected API token is refreshed and the request is retried once."""
+    client = _client()
+    refreshed = MonocleAuthSession(
+        access_token="new-token",
+        location_id="42",
+        token_expiry_ms=None,
+        user_id=None,
+        email=None,
+        display_name=None,
+    )
+    client._auth_manager.async_refresh_after_rejection.return_value = refreshed
+    client._async_post_once = AsyncMock(side_effect=[(401, "expired"), (200, "ok")])
+
+    await client._async_post("https://example.test", {"value": 1})
+
+    client._auth_manager.async_refresh_after_rejection.assert_awaited_once_with(
+        AUTH.access_token
+    )
+    assert client._async_post_once.await_count == 2
+    assert (
+        client._async_post_once.await_args_list[1].kwargs["access_token"] == "new-token"
+    )
+
+
+async def test_post_second_auth_rejection_requests_reauth() -> None:
+    """A second 401/403 after refresh requests Home Assistant reauthentication."""
+    client = _client()
+    client._async_post_once = AsyncMock(
+        side_effect=[(401, "expired"), (403, "rejected")]
+    )
+
+    with pytest.raises(MonocleClientError, match="authentication was rejected"):
+        await client._async_post("https://example.test", {})
+
+    client._auth_manager.request_reauth.assert_called_once_with()
+
+
+async def test_post_invalid_refresh_is_normalized() -> None:
+    """Invalid stored credentials become a client error after reauth is requested."""
+    client = _client()
+    client._async_post_once = AsyncMock(return_value=(401, "expired"))
+    client._auth_manager.async_refresh_after_rejection.side_effect = (
+        MonocleInvalidAuthError()
+    )
+
+    with pytest.raises(MonocleClientError, match="credentials"):
+        await client._async_post("https://example.test", {})
 
 
 async def test_post_transport_failure() -> None:

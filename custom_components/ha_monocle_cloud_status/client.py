@@ -133,9 +133,8 @@ class MonocleSocketClient:
             raise MonocleClientError("Unable to connect to Monocle socket") from err
 
     async def async_disconnect(self) -> None:
-        """Disconnect from the Monocle Socket.IO endpoint."""
-        if self._sio.connected:
-            await self._sio.disconnect()
+        """Stop the Monocle Socket.IO client and any reconnect attempts."""
+        await self._sio.shutdown()
 
     async def async_save_override(
         self,
@@ -206,9 +205,9 @@ class MonocleSocketClient:
             (controllable.get("OTHER") or []) if isinstance(controllable, dict) else []
         )
 
-        self.state.raw_phydev = phydev if isinstance(phydev, list) else []
-        self.state.raw_channels = channels if isinstance(channels, list) else []
-        other_items = other if isinstance(other, list) else []
+        self.state.raw_phydev = _dict_items(phydev)
+        self.state.raw_channels = _dict_items(channels)
+        other_items = _dict_items(other)
 
         self.state.device_online = self._extract_device_online(self.state.raw_phydev)
         self.state.load_state = self._extract_load_state(other_items)
@@ -285,6 +284,13 @@ class MonocleSocketClient:
                 except TypeError, ValueError, OSError:
                     return None
         return None
+
+
+def _dict_items(value: Any) -> list[dict[str, Any]]:
+    """Return dictionary elements from an API list, ignoring foreign values."""
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
 
 
 def _normalized_lower(value: Any) -> str | None:

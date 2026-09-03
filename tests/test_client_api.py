@@ -47,30 +47,31 @@ def _websession(*, status: int = 200, text: str = "ok") -> MagicMock:
 
 
 async def test_connect_and_disconnect() -> None:
-    """Socket connect/disconnect delegates to python-socketio."""
+    """Socket connect and shutdown delegate to python-socketio."""
     client = _client()
     sio = MagicMock()
     sio.connect = AsyncMock()
-    sio.connected = True
-    sio.disconnect = AsyncMock()
+    sio.shutdown = AsyncMock()
     client._sio = sio
 
     await client.async_connect()
     sio.connect.assert_awaited_once()
 
     await client.async_disconnect()
-    sio.disconnect.assert_awaited_once()
+    sio.shutdown.assert_awaited_once_with()
 
 
-async def test_disconnect_when_already_disconnected() -> None:
-    """Disconnect is a no-op when the socket is already down."""
+async def test_disconnect_shuts_down_while_socket_is_disconnected() -> None:
+    """Shutdown is called even when Socket.IO is between reconnect attempts."""
     client = _client()
     sio = MagicMock()
     sio.connected = False
-    sio.disconnect = AsyncMock()
+    sio.shutdown = AsyncMock()
     client._sio = sio
+
     await client.async_disconnect()
-    sio.disconnect.assert_not_awaited()
+
+    sio.shutdown.assert_awaited_once_with()
 
 
 async def test_connect_error_is_normalized() -> None:

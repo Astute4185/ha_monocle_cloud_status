@@ -82,3 +82,38 @@ def test_parse_malformed_event_is_safe() -> None:
     assert client.state.raw_channels == []
     assert client.state.actor_id is None
     assert client.state.override_mode is None
+
+
+def test_parse_malformed_list_elements_are_safe() -> None:
+    """Foreign elements inside valid API lists are ignored."""
+    client = _parser_client()
+    client._handle_event(
+        {
+            "phyDev": [None, "invalid", 123, {"online": True}],
+            "channels": [None, "invalid", {"id": "channel-1"}],
+            "controllable": {
+                "OTHER": [
+                    None,
+                    "invalid",
+                    123,
+                    {
+                        "id": "actor-1",
+                        "state": "ON",
+                        "override": {
+                            "fields": [
+                                None,
+                                {"id": "mode", "currentValue": "OFF"},
+                            ]
+                        },
+                    },
+                ]
+            },
+        }
+    )
+
+    assert client.state.raw_phydev == [{"online": True}]
+    assert client.state.raw_channels == [{"id": "channel-1"}]
+    assert client.state.device_online is True
+    assert client.state.actor_id == "actor-1"
+    assert client.state.load_state == "on"
+    assert client.state.override_mode == "off"

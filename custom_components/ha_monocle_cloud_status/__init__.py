@@ -7,7 +7,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .auth import MonocleConnectionError, MonocleInvalidAuthError, async_login
+from .auth import (
+    MonocleAuthManager,
+    MonocleConnectionError,
+    MonocleInvalidAuthError,
+    async_login,
+)
 from .client import MonocleClientError
 from .const import CONF_PASSWORD, CONF_USERNAME, PLATFORMS
 from .coordinator import MonocleCoordinator
@@ -37,7 +42,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: MonocleConfigEntry) -> b
     except MonocleConnectionError as err:
         raise ConfigEntryNotReady("Unable to authenticate with Monocle") from err
 
-    coordinator = MonocleCoordinator(hass, entry, auth, websession)
+    auth_manager = MonocleAuthManager(
+        entry.data[CONF_USERNAME],
+        entry.data[CONF_PASSWORD],
+        session=websession,
+        auth=auth,
+        reauth_callback=lambda: entry.async_start_reauth(hass),
+    )
+    coordinator = MonocleCoordinator(hass, entry, auth_manager, websession)
     try:
         await coordinator.async_start()
     except MonocleClientError as err:

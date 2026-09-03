@@ -10,7 +10,11 @@ from typing import Any
 import aiohttp
 import socketio
 
-from .auth import MonocleAuthSession
+from .auth import (
+    MonocleAuthManager,
+    MonocleConnectionError,
+    MonocleInvalidAuthError,
+)
 from .const import ORIGIN, REMOVE_OVERRIDE_URL, SAVE_OVERRIDE_URL, SOCKET_BASE_URL
 
 _LOGGER = logging.getLogger(__name__)
@@ -27,6 +31,8 @@ class MonocleState:
     """Latest pushed telemetry from the Monocle websocket."""
 
     connected: bool = False
+    telemetry_fresh: bool = False
+    last_event_at: datetime | None = None
     socket_sid: str | None = None
     latest_event: dict[str, Any] | None = None
     mains_pwr: float | None = None
@@ -48,12 +54,12 @@ class MonocleSocketClient:
 
     def __init__(
         self,
-        auth: MonocleAuthSession,
+        auth_manager: MonocleAuthManager,
         websession: aiohttp.ClientSession,
         *,
         event_callback: EventCallback | None = None,
     ) -> None:
-        self._auth = auth
+        self._auth_manager = auth_manager
         self._websession = websession
         self._event_callback = event_callback
         self.state = MonocleState()
@@ -81,6 +87,7 @@ class MonocleSocketClient:
             else:
                 _LOGGER.debug("Monocle socket connected")
             self.state.connected = True
+            self.state.telemetry_fresh = False
             self.state.socket_sid = self._sio.sid
             if recovered:
                 await self._async_notify(self.state.latest_event or {})
@@ -92,6 +99,7 @@ class MonocleSocketClient:
                 _LOGGER.debug("Monocle socket disconnect reason: %r", reason)
                 self._availability_lost = True
             self.state.connected = False
+            self.state.telemetry_fresh = False
             self.state.socket_sid = None
             await self._async_notify(self.state.latest_event or {})
 
@@ -115,16 +123,18 @@ class MonocleSocketClient:
     async def async_connect(self) -> None:
         """Connect to the Monocle Socket.IO endpoint."""
         try:
+            await self._auth_manager.async_refresh_if_needed()
             await self._sio.connect(
                 SOCKET_BASE_URL,
                 transports=["websocket"],
                 headers={"Origin": ORIGIN},
-                auth={
-                    "token": self._auth.access_token,
-                    "locationId": self._auth.location_id,
-                },
+                auth=self._auth_manager.socket_auth,
                 wait_timeout=20,
             )
+        except (MonocleInvalidAuthError, MonocleConnectionError) as err:
+            raise MonocleClientError(
+                "Unable to refresh Monocle authentication"
+            ) from err
         except (
             socketio.exceptions.ConnectionError,
             aiohttp.ClientError,
@@ -133,9 +143,8 @@ class MonocleSocketClient:
             raise MonocleClientError("Unable to connect to Monocle socket") from err
 
     async def async_disconnect(self) -> None:
-        """Disconnect from the Monocle Socket.IO endpoint."""
-        if self._sio.connected:
-            await self._sio.disconnect()
+        """Stop the Monocle Socket.IO client and any reconnect attempts."""
+        await self._sio.shutdown()
 
     async def async_save_override(
         self,
@@ -164,32 +173,69 @@ class MonocleSocketClient:
         )
 
     async def _async_post(self, url: str, payload: dict[str, Any]) -> None:
-        """POST an authenticated Monocle API request."""
+        """POST an authenticated request, refreshing a rejected token once."""
+        try:
+            auth = await self._auth_manager.async_refresh_if_needed()
+            status, raw = await self._async_post_once(
+                url,
+                payload,
+                access_token=auth.access_token,
+            )
+
+            if status in {401, 403}:
+                auth = await self._auth_manager.async_refresh_after_rejection(
+                    auth.access_token
+                )
+                status, raw = await self._async_post_once(
+                    url,
+                    payload,
+                    access_token=auth.access_token,
+                )
+
+            if status in {401, 403}:
+                self._auth_manager.request_reauth()
+                raise MonocleClientError(
+                    f"Monocle authentication was rejected with HTTP {status}"
+                )
+
+            if not 200 <= status < 300:
+                raise MonocleClientError(
+                    f"Monocle request failed with HTTP {status}: {raw[:200]}"
+                )
+        except MonocleInvalidAuthError as err:
+            raise MonocleClientError("Monocle credentials are no longer valid") from err
+        except MonocleConnectionError as err:
+            raise MonocleClientError(
+                "Unable to refresh Monocle authentication"
+            ) from err
+        except MonocleClientError:
+            raise
+        except (aiohttp.ClientError, TimeoutError) as err:
+            raise MonocleClientError("Unable to communicate with Monocle") from err
+
+    async def _async_post_once(
+        self,
+        url: str,
+        payload: dict[str, Any],
+        *,
+        access_token: str,
+    ) -> tuple[int, str]:
+        """Perform one authenticated API POST and return status/body."""
         headers = {
-            "Authorization": f"Token {self._auth.access_token}",
+            "Authorization": f"Token {access_token}",
             "Accept": "application/json, text/plain, */*",
             "Content-Type": "application/json",
             "Origin": ORIGIN,
             "Referer": f"{ORIGIN}/",
             "X-Requested-With": "au.com.catchpower.monocle",
         }
-        try:
-            async with self._websession.post(
-                url,
-                json=payload,
-                headers=headers,
-                timeout=aiohttp.ClientTimeout(total=20),
-            ) as response:
-                raw = await response.text()
-                if not 200 <= response.status < 300:
-                    raise MonocleClientError(
-                        f"Monocle request failed with HTTP {response.status}: "
-                        f"{raw[:200]}"
-                    )
-        except MonocleClientError:
-            raise
-        except (aiohttp.ClientError, TimeoutError) as err:
-            raise MonocleClientError("Unable to communicate with Monocle") from err
+        async with self._websession.post(
+            url,
+            json=payload,
+            headers=headers,
+            timeout=aiohttp.ClientTimeout(total=20),
+        ) as response:
+            return response.status, await response.text()
 
     def _handle_event(self, data: dict[str, Any]) -> None:
         """Parse a pushed telemetry event into state."""
@@ -206,9 +252,9 @@ class MonocleSocketClient:
             (controllable.get("OTHER") or []) if isinstance(controllable, dict) else []
         )
 
-        self.state.raw_phydev = phydev if isinstance(phydev, list) else []
-        self.state.raw_channels = channels if isinstance(channels, list) else []
-        other_items = other if isinstance(other, list) else []
+        self.state.raw_phydev = _dict_items(phydev)
+        self.state.raw_channels = _dict_items(channels)
+        other_items = _dict_items(other)
 
         self.state.device_online = self._extract_device_online(self.state.raw_phydev)
         self.state.load_state = self._extract_load_state(other_items)
@@ -218,10 +264,12 @@ class MonocleSocketClient:
             other_items
         )
         self.state.location_id = self._safe_location_id()
+        self.state.telemetry_fresh = True
+        self.state.last_event_at = datetime.now(UTC)
 
     def _safe_location_id(self) -> int | None:
         try:
-            return int(self._auth.location_id)
+            return int(self._auth_manager.location_id)
         except TypeError, ValueError:
             return None
 
@@ -285,6 +333,13 @@ class MonocleSocketClient:
                 except TypeError, ValueError, OSError:
                     return None
         return None
+
+
+def _dict_items(value: Any) -> list[dict[str, Any]]:
+    """Return dictionary elements from an API list, ignoring foreign values."""
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
 
 
 def _normalized_lower(value: Any) -> str | None:

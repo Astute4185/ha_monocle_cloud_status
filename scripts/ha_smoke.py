@@ -47,6 +47,20 @@ class _SmokeConfigEntry:
         """Capture coordinator shutdown registration."""
         self.unload_callbacks.append(callback)
 
+    def async_create_background_task(self, _hass, coroutine, name):
+        """Create the config-entry-owned background task used by the coordinator."""
+        return asyncio.create_task(coroutine, name=name)
+
+
+class _SmokeAuthManager:
+    """Network-free authentication manager used by the smoke test."""
+
+    location_id = "1"
+
+    async def async_refresh_loop(self) -> None:
+        """Stay alive until coordinator shutdown cancels the task."""
+        await asyncio.Event().wait()
+
 
 class _SmokeClient:
     """Network-free client used to exercise the coordinator lifecycle."""
@@ -57,29 +71,23 @@ class _SmokeClient:
     async def async_connect(self) -> None:
         """Simulate a socket connection and one pushed event."""
         self.state.connected = True
+        self.state.telemetry_fresh = True
         self.state.latest_event = {"smoke": True}
 
     async def async_disconnect(self) -> None:
         """Simulate socket shutdown."""
         self.state.connected = False
+        self.state.telemetry_fresh = False
 
 
 async def _async_runtime_smoke(prefix: str) -> None:
     """Construct Home Assistant and run the push coordinator without network I/O."""
     from homeassistant.core import HomeAssistant
 
-    auth_module = import_module(f"{prefix}.auth")
     client_module = import_module(f"{prefix}.client")
     coordinator_module = import_module(f"{prefix}.coordinator")
 
-    auth = auth_module.MonocleAuthSession(
-        access_token="smoke-token",
-        location_id="1",
-        token_expiry_ms=None,
-        user_id=None,
-        email=None,
-        display_name=None,
-    )
+    auth_manager = _SmokeAuthManager()
     state = client_module.MonocleState()
     smoke_client = _SmokeClient(state)
     entry = _SmokeConfigEntry()
@@ -95,7 +103,7 @@ async def _async_runtime_smoke(prefix: str) -> None:
                 coordinator = coordinator_module.MonocleCoordinator(
                     hass,
                     entry,
-                    auth,
+                    auth_manager,
                     object(),
                 )
 
@@ -108,6 +116,7 @@ async def _async_runtime_smoke(prefix: str) -> None:
             if (
                 coordinator.data != {"smoke": True}
                 or not coordinator.client.state.connected
+                or not coordinator.client.state.telemetry_fresh
             ):
                 raise AssertionError("Coordinator did not publish the smoke event")
 

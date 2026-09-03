@@ -8,6 +8,7 @@ from custom_components.ha_monocle_cloud_status import (
     async_unload_entry,
 )
 from custom_components.ha_monocle_cloud_status.auth import (
+    MonocleAuthManager,
     MonocleAuthSession,
     MonocleConnectionError,
     MonocleInvalidAuthError,
@@ -44,6 +45,8 @@ async def test_setup_success() -> None:
     coordinator.async_start = AsyncMock()
     coordinator.async_stop = AsyncMock()
 
+    auth_manager = MagicMock(spec=MonocleAuthManager)
+
     with (
         patch(
             "custom_components.ha_monocle_cloud_status.async_get_clientsession",
@@ -54,13 +57,20 @@ async def test_setup_success() -> None:
             new=AsyncMock(return_value=AUTH),
         ),
         patch(
+            "custom_components.ha_monocle_cloud_status.MonocleAuthManager",
+            return_value=auth_manager,
+        ) as manager_cls,
+        patch(
             "custom_components.ha_monocle_cloud_status.MonocleCoordinator",
             return_value=coordinator,
-        ),
+        ) as coordinator_cls,
     ):
         assert await async_setup_entry(hass, entry) is True
 
     assert entry.runtime_data.coordinator is coordinator
+    manager_cls.assert_called_once()
+    coordinator_cls.assert_called_once()
+    assert coordinator_cls.call_args.args[2] is auth_manager
     coordinator.async_start.assert_awaited_once()
     hass.config_entries.async_forward_entry_setups.assert_awaited_once()
 
@@ -107,6 +117,10 @@ async def test_socket_failure_is_not_ready() -> None:
             new=AsyncMock(return_value=AUTH),
         ),
         patch(
+            "custom_components.ha_monocle_cloud_status.MonocleAuthManager",
+            return_value=MagicMock(spec=MonocleAuthManager),
+        ),
+        patch(
             "custom_components.ha_monocle_cloud_status.MonocleCoordinator",
             return_value=coordinator,
         ),
@@ -134,6 +148,10 @@ async def test_forward_failure_stops_client() -> None:
         patch(
             "custom_components.ha_monocle_cloud_status.async_login",
             new=AsyncMock(return_value=AUTH),
+        ),
+        patch(
+            "custom_components.ha_monocle_cloud_status.MonocleAuthManager",
+            return_value=MagicMock(spec=MonocleAuthManager),
         ),
         patch(
             "custom_components.ha_monocle_cloud_status.MonocleCoordinator",

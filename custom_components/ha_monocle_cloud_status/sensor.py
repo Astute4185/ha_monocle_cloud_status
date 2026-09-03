@@ -116,4 +116,5 @@ class MonocleSensor(MonocleBaseEntity, SensorEntity):
     @property
     def available(self) -> bool:
         """Return whether current data is available."""
-        return self.coordinator.client.state.connected
+        state = self.coordinator.client.state
+        return state.connected and state.telemetry_fresh

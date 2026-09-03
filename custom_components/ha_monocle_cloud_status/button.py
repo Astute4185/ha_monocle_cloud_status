@@ -44,6 +44,7 @@ class MonocleApplyOverrideButton(MonocleBaseEntity, ButtonEntity):
         state = self.coordinator.client.state
         return (
             state.connected
+            and state.telemetry_fresh
             and state.actor_id is not None
             and state.location_id is not None
         )
@@ -51,7 +52,12 @@ class MonocleApplyOverrideButton(MonocleBaseEntity, ButtonEntity):
     async def async_press(self) -> None:
         """Apply the selected override."""
         state = self.coordinator.client.state
-        if not state.connected or state.actor_id is None or state.location_id is None:
+        if (
+            not state.connected
+            or not state.telemetry_fresh
+            or state.actor_id is None
+            or state.location_id is None
+        ):
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="override_unavailable",

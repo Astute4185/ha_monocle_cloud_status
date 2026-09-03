@@ -1,8 +1,8 @@
 """Unit tests for Monocle telemetry parsing."""
 
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
-from custom_components.ha_monocle_cloud_status.auth import MonocleAuthSession
 from custom_components.ha_monocle_cloud_status.client import (
     MonocleSocketClient,
     MonocleState,
@@ -11,14 +11,7 @@ from custom_components.ha_monocle_cloud_status.client import (
 
 def _parser_client() -> MonocleSocketClient:
     client = object.__new__(MonocleSocketClient)
-    client._auth = MonocleAuthSession(
-        access_token="token",
-        location_id="42",
-        token_expiry_ms=None,
-        user_id=None,
-        email=None,
-        display_name=None,
-    )
+    client._auth_manager = SimpleNamespace(location_id="42")
     client.state = MonocleState()
     return client
 
@@ -63,6 +56,9 @@ def test_parse_complete_event() -> None:
     assert client.state.override_valid_until == datetime.fromtimestamp(
         1_700_000_000, tz=UTC
     )
+    assert client.state.telemetry_fresh is True
+    assert client.state.last_event_at is not None
+    assert client.state.last_event_at.tzinfo is UTC
 
 
 def test_parse_malformed_event_is_safe() -> None:
@@ -82,3 +78,40 @@ def test_parse_malformed_event_is_safe() -> None:
     assert client.state.raw_channels == []
     assert client.state.actor_id is None
     assert client.state.override_mode is None
+    assert client.state.telemetry_fresh is True
+    assert client.state.last_event_at is not None
+
+
+def test_parse_malformed_list_elements_are_safe() -> None:
+    """Foreign elements inside valid API lists are ignored."""
+    client = _parser_client()
+    client._handle_event(
+        {
+            "phyDev": [None, "invalid", 123, {"online": True}],
+            "channels": [None, "invalid", {"id": "channel-1"}],
+            "controllable": {
+                "OTHER": [
+                    None,
+                    "invalid",
+                    123,
+                    {
+                        "id": "actor-1",
+                        "state": "ON",
+                        "override": {
+                            "fields": [
+                                None,
+                                {"id": "mode", "currentValue": "OFF"},
+                            ]
+                        },
+                    },
+                ]
+            },
+        }
+    )
+
+    assert client.state.raw_phydev == [{"online": True}]
+    assert client.state.raw_channels == [{"id": "channel-1"}]
+    assert client.state.device_online is True
+    assert client.state.actor_id == "actor-1"
+    assert client.state.load_state == "on"
+    assert client.state.override_mode == "off"

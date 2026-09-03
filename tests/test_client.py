@@ -56,6 +56,9 @@ def test_parse_complete_event() -> None:
     assert client.state.override_valid_until == datetime.fromtimestamp(
         1_700_000_000, tz=UTC
     )
+    assert client.state.telemetry_fresh is True
+    assert client.state.last_event_at is not None
+    assert client.state.last_event_at.tzinfo is UTC
 
 
 def test_parse_malformed_event_is_safe() -> None:
@@ -75,6 +78,8 @@ def test_parse_malformed_event_is_safe() -> None:
     assert client.state.raw_channels == []
     assert client.state.actor_id is None
     assert client.state.override_mode is None
+    assert client.state.telemetry_fresh is True
+    assert client.state.last_event_at is not None
 
 
 def test_parse_malformed_list_elements_are_safe() -> None:

@@ -31,6 +31,8 @@ class MonocleState:
     """Latest pushed telemetry from the Monocle websocket."""
 
     connected: bool = False
+    telemetry_fresh: bool = False
+    last_event_at: datetime | None = None
     socket_sid: str | None = None
     latest_event: dict[str, Any] | None = None
     mains_pwr: float | None = None
@@ -85,6 +87,7 @@ class MonocleSocketClient:
             else:
                 _LOGGER.debug("Monocle socket connected")
             self.state.connected = True
+            self.state.telemetry_fresh = False
             self.state.socket_sid = self._sio.sid
             if recovered:
                 await self._async_notify(self.state.latest_event or {})
@@ -96,6 +99,7 @@ class MonocleSocketClient:
                 _LOGGER.debug("Monocle socket disconnect reason: %r", reason)
                 self._availability_lost = True
             self.state.connected = False
+            self.state.telemetry_fresh = False
             self.state.socket_sid = None
             await self._async_notify(self.state.latest_event or {})
 
@@ -260,6 +264,8 @@ class MonocleSocketClient:
             other_items
         )
         self.state.location_id = self._safe_location_id()
+        self.state.telemetry_fresh = True
+        self.state.last_event_at = datetime.now(UTC)
 
     def _safe_location_id(self) -> int | None:
         try:

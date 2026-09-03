@@ -72,7 +72,11 @@ async def test_platform_setup_adds_entities(platform, expected_count: int) -> No
 
 def test_binary_sensor_and_device_info() -> None:
     """Online state, availability, and device metadata reflect coordinator state."""
-    coordinator = _coordinator(connected=True, device_online=True)
+    coordinator = _coordinator(
+        connected=True,
+        telemetry_fresh=True,
+        device_online=True,
+    )
     entity = MonocleOnlineBinarySensor(coordinator, _entry(coordinator))
     assert entity.is_on is True
     assert entity.available is True
@@ -84,6 +88,7 @@ def test_sensors_expose_values_and_unavailable_state() -> None:
     """Sensor descriptions map telemetry into native values."""
     coordinator = _coordinator(
         connected=True,
+        telemetry_fresh=True,
         mains_pwr=100.5,
         solar_pwr=200.0,
         house_pwr=50.0,
@@ -105,6 +110,10 @@ def test_sensors_expose_values_and_unavailable_state() -> None:
     assert entities["override_mode"].native_value == "Off"
     assert entities["mains_power"].available is True
 
+    coordinator.client.state.telemetry_fresh = False
+    assert entities["mains_power"].available is False
+
+    coordinator.client.state.telemetry_fresh = True
     coordinator.client.state.connected = False
     assert entities["mains_power"].available is False
 
@@ -131,6 +140,7 @@ async def test_button_apply_and_remove_override() -> None:
     """The button applies or removes the current draft override."""
     coordinator = _coordinator(
         connected=True,
+        telemetry_fresh=True,
         actor_id="actor-1",
         location_id=42,
     )
@@ -165,6 +175,7 @@ async def test_button_reports_unavailable_and_api_failure() -> None:
 
     coordinator.client.state = MonocleState(
         connected=True,
+        telemetry_fresh=True,
         actor_id="actor-1",
         location_id=42,
     )
@@ -172,6 +183,36 @@ async def test_button_reports_unavailable_and_api_failure() -> None:
     coordinator.client.async_save_override.side_effect = MonocleClientError("failed")
     with pytest.raises(HomeAssistantError):
         await entity.async_press()
+
+
+async def test_entities_remain_unavailable_until_fresh_telemetry() -> None:
+    """Reconnect alone must not expose stale telemetry or stale override targets."""
+    coordinator = _coordinator(
+        connected=True,
+        telemetry_fresh=False,
+        device_online=True,
+        mains_pwr=100.0,
+        actor_id="actor-1",
+        location_id=42,
+    )
+    entry = _entry(coordinator)
+
+    online = MonocleOnlineBinarySensor(coordinator, entry)
+    mains = MonocleSensor(coordinator, entry, SENSORS[0])
+    apply_override = MonocleApplyOverrideButton(coordinator, entry)
+
+    assert online.available is False
+    assert mains.available is False
+    assert apply_override.available is False
+
+    with pytest.raises(HomeAssistantError):
+        await apply_override.async_press()
+
+    coordinator.client.state.telemetry_fresh = True
+
+    assert online.available is True
+    assert mains.available is True
+    assert apply_override.available is True
 
 
 def test_normalize_on_off_edge_cases() -> None:

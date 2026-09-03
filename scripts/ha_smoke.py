@@ -71,11 +71,13 @@ class _SmokeClient:
     async def async_connect(self) -> None:
         """Simulate a socket connection and one pushed event."""
         self.state.connected = True
+        self.state.telemetry_fresh = True
         self.state.latest_event = {"smoke": True}
 
     async def async_disconnect(self) -> None:
         """Simulate socket shutdown."""
         self.state.connected = False
+        self.state.telemetry_fresh = False
 
 
 async def _async_runtime_smoke(prefix: str) -> None:
@@ -114,6 +116,7 @@ async def _async_runtime_smoke(prefix: str) -> None:
             if (
                 coordinator.data != {"smoke": True}
                 or not coordinator.client.state.connected
+                or not coordinator.client.state.telemetry_fresh
             ):
                 raise AssertionError("Coordinator did not publish the smoke event")
 

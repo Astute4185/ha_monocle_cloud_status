@@ -241,26 +241,48 @@ async def test_socket_callbacks_update_state_and_notify() -> None:
         "custom_components.ha_monocle_cloud_status.client.socketio.AsyncClient",
         return_value=sio,
     ):
-        client = MonocleSocketClient(AUTH, websession, event_callback=callback)
+        client = MonocleSocketClient(
+            _auth_manager(),
+            websession,
+            event_callback=callback,
+        )
 
     await sio.handlers["connect"]()
     assert client.state.connected is True
+    assert client.state.telemetry_fresh is False
     assert client.state.socket_sid == "socket-id"
 
     callback.assert_not_awaited()
 
     await sio.handlers["event"]({"mainsPWR": 12})
     assert client.state.mains_pwr == 12.0
+    assert client.state.telemetry_fresh is True
+    assert client.state.last_event_at is not None
+    first_event_at = client.state.last_event_at
     callback.assert_awaited_once_with({"mainsPWR": 12})
 
     callback.reset_mock()
     await sio.handlers["disconnect"]("transport error")
     assert client.state.connected is False
+    assert client.state.telemetry_fresh is False
+    assert client.state.last_event_at == first_event_at
     assert client._availability_lost is True
     callback.assert_awaited_once_with({"mainsPWR": 12})
 
     callback.reset_mock()
     await sio.handlers["connect"]()
+    assert client.state.connected is True
+    assert client.state.telemetry_fresh is False
+    assert client.state.last_event_at == first_event_at
     assert client._availability_lost is False
     callback.assert_awaited_once_with({"mainsPWR": 12})
+
+    callback.reset_mock()
+    await sio.handlers["event"]({"mainsPWR": 13})
+    assert client.state.telemetry_fresh is True
+    assert client.state.mains_pwr == 13.0
+    assert client.state.last_event_at is not None
+    assert client.state.last_event_at >= first_event_at
+    callback.assert_awaited_once_with({"mainsPWR": 13})
+
     await sio.handlers["connect_error"]("temporary")

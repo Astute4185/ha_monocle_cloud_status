@@ -12,7 +12,7 @@ from custom_components.ha_monocle_cloud_status.const import (
     CONF_USERNAME,
     DOMAIN,
 )
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 
 from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResultType

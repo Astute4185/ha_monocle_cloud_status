@@ -29,6 +29,12 @@ Control installation. Six-channel hardware has not been validated.
 
 The current development and CI baseline is Home Assistant 2026.8 or later.
 
+CI validates all pull requests, including Dependabot updates, with independent lint,
+pytest/coverage and dependency-audit jobs. A rolling Home Assistant compatibility
+matrix smoke-tests the minimum supported, previous stable and latest stable releases.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for branch protection and synchronized
+runtime-dependency update configuration.
+
 ## Development
 
 Python 3.14 is required for the current Home Assistant development baseline.

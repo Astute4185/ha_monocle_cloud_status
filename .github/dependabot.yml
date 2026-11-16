@@ -4,6 +4,10 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+    # Runtime pins also exist in manifest.json, which Dependabot cannot update.
+    # A separate scheduled workflow updates the two files atomically.
+    ignore:
+      - dependency-name: python-socketio
     groups:
       python-development-dependencies:
         patterns:

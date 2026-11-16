@@ -31,8 +31,9 @@ known-first-party = ["homeassistant"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 pythonpath = ["."]
-addopts = "--strict-config --strict-markers --cov=custom_components.ha_monocle_cloud_status --cov-report=term-missing --cov-report=xml --cov-fail-under=80"
+addopts = "-p no:respx --strict-config --strict-markers --cov=custom_components.ha_monocle_cloud_status --cov-report=term-missing --cov-report=xml --cov-fail-under=80"
 testpaths = ["tests"]
 
 [tool.coverage.run]

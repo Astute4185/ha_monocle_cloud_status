@@ -1,0 +1,68 @@
+name: Home Assistant compatibility
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "29 2 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ha-compatibility-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  select-versions:
+    name: select-versions
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.select.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Resolve released HA patch versions
+        id: select
+        run: python scripts/select_ha_versions.py --minimum 2026.8 --github-output
+
+  compatibility:
+    name: ha-smoke (${{ matrix.label }})
+    needs: select-versions
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.select-versions.outputs.matrix) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements-runtime.txt
+
+      - name: Install HA and integration runtime dependencies
+        env:
+          HA_VERSION: ${{ matrix.ha_version }}
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "homeassistant==$HA_VERSION" -r requirements-runtime.txt
+          python -m pip check
+
+      - name: Show Home Assistant version
+        run: python -c "from importlib.metadata import version; print(version('homeassistant'))"
+
+      - name: Runtime and API compatibility smoke test
+        run: python scripts/ha_smoke.py

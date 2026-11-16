@@ -1,5 +1,7 @@
-# pytest-homeassistant-custom-component is updated against current Home Assistant releases.
-pytest-homeassistant-custom-component==0.13.357
+# The official HA pytest package pins a matching Home Assistant version.
+# Keep this unpinned to use the newest released compatible HA/fixture pair.
+# Never install pytest-homeassistant-custom-component alongside this package.
+pytest-homeassistant>=2026.11.0
 pytest-cov>=7.1.0
 ruff>=0.16.4,<0.17
 pip-audit>=2.10.1

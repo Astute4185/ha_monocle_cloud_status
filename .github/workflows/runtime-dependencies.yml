@@ -1,0 +1,65 @@
+name: Synchronized runtime dependency updates
+
+on:
+  schedule:
+    - cron: "11 4 * * 2"
+  workflow_dispatch:
+
+# This workflow is deliberately not triggered by untrusted PR code.
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: synchronized-runtime-updates
+  cancel-in-progress: false
+
+jobs:
+  update-runtime:
+    name: update-runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout trusted main branch
+        uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: Refresh runtime requirement and integration manifest together
+        run: |
+          python scripts/update_runtime.py
+          python scripts/validate_repo.py
+
+      - name: Open/update reviewable PR
+        id: cpr
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore(deps): synchronise python-socketio runtime dependency"
+          branch: automation/synchronise-runtime-dependencies
+          delete-branch: true
+          title: "chore(deps): update Monocle runtime dependency and HA manifest"
+          body: |
+            Updates the pinned runtime dependency and Home Assistant integration manifest atomically.
+            This PR is subject to all CI, Home Assistant compatibility and HACS validation checks.
+          add-paths: |
+            requirements-runtime.txt
+            custom_components/ha_monocle_cloud_status/manifest.json
+
+      # PRs/commits created with GITHUB_TOKEN do not automatically trigger CI.
+      # workflow_dispatch is explicitly exempt from that restriction.
+      - name: Run required checks for the bot-created branch
+        if: steps.cpr.outputs.pull-request-operation == 'created' || steps.cpr.outputs.pull-request-operation == 'updated'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh workflow run ci.yml --ref automation/synchronise-runtime-dependencies
+          gh workflow run ha-compatibility.yml --ref automation/synchronise-runtime-dependencies
+          gh workflow run validate.yml --ref automation/synchronise-runtime-dependencies

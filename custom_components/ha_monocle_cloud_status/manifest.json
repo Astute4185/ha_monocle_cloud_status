@@ -14,7 +14,7 @@
     "socketio"
   ],
   "requirements": [
-    "python-socketio[asyncio-client]==5.16.4"
+    "python-socketio[asyncio-client]==5.18.1"
   ],
   "version": "1.2.0"
 }
